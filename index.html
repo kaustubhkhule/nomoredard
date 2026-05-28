@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Emergency Period Survival Website 💕</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Pacifico&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --pink: #f9a8d4;
@@ -197,6 +198,53 @@ section { position: relative; padding: clamp(60px, 8vw, 100px) clamp(20px, 5vw, 
 .meter-bar-bg { height: 12px; background: rgba(249,168,212,0.2); border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
 .meter-bar-fill { height: 100%; border-radius: 6px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .meter-desc { font-size: 12px; color: var(--text-soft); font-weight: 600; margin-top: 4px; }
+
+/* ── Sliders ── */
+.meter-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px; border-radius: 3px; outline: none; cursor: pointer;
+  background: rgba(249,168,212,0.25); margin-top: 10px;
+}
+.meter-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--pink-deep), var(--rose));
+  cursor: grab; box-shadow: 0 2px 8px rgba(236,72,153,0.5);
+  border: 3px solid white;
+}
+.meter-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.3); }
+.meter-hint { font-size: 11px; color: rgba(168,80,114,0.6); font-weight: 600; margin-top: 4px; text-align: right; }
+
+/* ── Save / Export Bar ── */
+.report-actions {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+  margin: 24px 0 0; padding: 20px;
+  background: rgba(255,255,255,0.7); border-radius: var(--radius);
+  border: 1.5px dashed rgba(249,168,212,0.5);
+}
+.save-notice { width: 100%; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-soft); min-height: 20px; transition: color 0.3s; }
+
+/* ── Data History Modal ── */
+#data-modal {
+  position: fixed; inset: 0; background: rgba(252,231,243,0.65);
+  backdrop-filter: blur(14px); display: flex; align-items: center; justify-content: center;
+  z-index: 7000; opacity: 0; pointer-events: none; transition: opacity 0.4s;
+}
+#data-modal.show { opacity: 1; pointer-events: all; }
+.data-modal-inner {
+  background: white; border-radius: var(--radius-lg); padding: 32px 28px;
+  width: min(820px, 94vw); max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(236,72,153,0.25);
+  animation: hugAppear 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.data-modal-inner h2 { font-family:'Pacifico',cursive; color:var(--pink-deep); font-size:22px; margin-bottom:16px; text-align:center; }
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table th { background: linear-gradient(135deg,var(--pink-soft),var(--lavender-soft)); color:var(--text); font-weight:800; padding:10px 8px; text-align:center; border-bottom:2px solid rgba(249,168,212,0.4); position:sticky; top:0; }
+.data-table td { padding:9px 8px; text-align:center; border-bottom:1px solid rgba(249,168,212,0.15); font-weight:600; color:var(--text); }
+.data-table tr:hover td { background:rgba(252,231,243,0.4); }
+.data-table .mood-cell { font-size:11px; max-width:160px; word-break:break-word; }
+.no-data-msg { text-align:center; color:var(--text-soft); font-weight:700; padding:32px; font-size:15px; }
+.modal-close-btn { display:block; margin:20px auto 0; }
 .mood-detector { background: linear-gradient(135deg, var(--lavender-soft), var(--pink-soft)); border-radius: var(--radius); padding: 28px; text-align: center; margin-top: 24px; border: 2px solid rgba(196,181,253,0.4); }
 .mood-display { background: white; border-radius: 16px; padding: 16px 24px; font-family: 'Pacifico', cursive; font-size: clamp(18px, 3vw, 26px); color: var(--pink-deep); margin: 16px 0; min-height: 70px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .mood-display.pop { animation: moodPop 0.5s ease; }
@@ -520,39 +568,59 @@ section { position: relative; padding: clamp(60px, 8vw, 100px) clamp(20px, 5vw, 
       <div class="meter-card reveal reveal-delay-1">
         <div class="meter-label"><span>😣 Pain Level</span><span class="meter-value" id="val-pain">0%</span></div>
         <div class="meter-bar-bg"><div class="meter-bar-fill" id="bar-pain" style="width:0%; background:linear-gradient(90deg,#fb7185,#ec4899);"></div></div>
+        <input type="range" min="0" max="100" value="0" class="meter-slider" id="sl-pain" oninput="updateMeter('pain',this.value)">
         <div class="meter-desc">Diplomatic assessment: "Manageable… probably"</div>
+        <div class="meter-hint" id="hint-pain">Drag to set 💕</div>
       </div>
       <div class="meter-card reveal reveal-delay-2">
         <div class="meter-label"><span>😶‍🌫️ Mood</span><span class="meter-value" id="val-mood">0%</span></div>
         <div class="meter-bar-bg"><div class="meter-bar-fill" id="bar-mood" style="width:0%; background:linear-gradient(90deg,#a78bfa,#7c3aed);"></div></div>
+        <input type="range" min="0" max="100" value="0" class="meter-slider" id="sl-mood" oninput="updateMeter('mood',this.value)">
         <div class="meter-desc">Oscillating between fine and absolutely not fine</div>
+        <div class="meter-hint" id="hint-mood">Drag to set 💕</div>
       </div>
       <div class="meter-card reveal reveal-delay-1">
         <div class="meter-label"><span>😭 Cry Probability</span><span class="meter-value" id="val-cry">0%</span></div>
         <div class="meter-bar-bg"><div class="meter-bar-fill" id="bar-cry" style="width:0%; background:linear-gradient(90deg,#60a5fa,#3b82f6);"></div></div>
+        <input type="range" min="0" max="100" value="0" class="meter-slider" id="sl-cry" oninput="updateMeter('cry',this.value)">
         <div class="meter-desc">Even ads about dogs are dangerous right now</div>
+        <div class="meter-hint" id="hint-cry">Drag to set 💕</div>
       </div>
       <div class="meter-card reveal reveal-delay-2">
         <div class="meter-label"><span>⚡ Energy Level</span><span class="meter-value" id="val-energy">0%</span></div>
         <div class="meter-bar-bg"><div class="meter-bar-fill" id="bar-energy" style="width:0%; background:linear-gradient(90deg,#34d399,#10b981);"></div></div>
+        <input type="range" min="0" max="100" value="0" class="meter-slider" id="sl-energy" oninput="updateMeter('energy',this.value)">
         <div class="meter-desc">Currently: horizontal life only 🛋️</div>
+        <div class="meter-hint" id="hint-energy">Drag to set 💕</div>
       </div>
       <div class="meter-card reveal reveal-delay-1">
         <div class="meter-label"><span>🍕 Hunger</span><span class="meter-value" id="val-hunger">0%</span></div>
         <div class="meter-bar-bg"><div class="meter-bar-fill" id="bar-hunger" style="width:0%; background:linear-gradient(90deg,#fdba74,#f97316);"></div></div>
+        <input type="range" min="0" max="100" value="0" class="meter-slider" id="sl-hunger" oninput="updateMeter('hunger',this.value)">
         <div class="meter-desc">Specific cravings only. No negotiations.</div>
+        <div class="meter-hint" id="hint-hunger">Drag to set 💕</div>
       </div>
       <div class="meter-card reveal reveal-delay-2">
         <div class="meter-label"><span>🧠 Emotional Stability</span><span class="meter-value" id="val-stable">0%</span></div>
         <div class="meter-bar-bg"><div class="meter-bar-fill" id="bar-stable" style="width:0%; background:linear-gradient(90deg,#f9a8d4,#ec4899);"></div></div>
+        <input type="range" min="0" max="100" value="0" class="meter-slider" id="sl-stable" oninput="updateMeter('stable',this.value)">
         <div class="meter-desc">Temporarily unavailable. Please try again tomorrow 🌸</div>
+        <div class="meter-hint" id="hint-stable">Drag to set 💕</div>
       </div>
+    </div>
+
+    <!-- Action bar: save / export / view -->
+    <div class="report-actions reveal">
+      <button class="btn btn-primary" onclick="saveEntry()">💾 Save Today's Entry</button>
+      <button class="btn btn-mint" onclick="exportExcel()">📊 Download Excel</button>
+      <button class="btn btn-lavender" onclick="openDataModal()">📋 View All Data</button>
+      <div class="save-notice" id="save-notice"></div>
     </div>
 
     <div class="mood-detector reveal">
       <h3 style="font-weight:800; font-size:18px; color:var(--pink-deep); margin-bottom:8px;">🌪️ Mood Swings Detector</h3>
-      <p style="font-size:14px; font-weight:600; color:var(--text-soft); margin-bottom:4px;">Press to reveal your current emotional status</p>
-      <div class="mood-display" id="mood-display">Press the button 👇</div>
+      <p style="font-size:14px; font-weight:600; color:var(--text-soft); margin-bottom:4px;">Set your levels above, then press to reveal your emotional status 💅</p>
+      <div class="mood-display" id="mood-display">Set the bars first, then press 👇</div>
       <button class="btn btn-primary" onclick="detectMood()">Detect My Mood 🔍</button>
     </div>
 
@@ -631,13 +699,27 @@ Tab tak chocolates aur hugs rahenge tere side pe khade re 💕<br>
   </div>
 </section>
 
+<!-- Data History Modal -->
+<div id="data-modal" role="dialog" aria-modal="true">
+  <div class="data-modal-inner">
+    <h2>📊 Your Period Data History</h2>
+    <div id="data-table-wrap"></div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
+      <button class="btn btn-mint modal-close-btn" onclick="exportExcel()" style="margin:0;">📊 Download Excel</button>
+      <button class="btn btn-outline modal-close-btn" onclick="clearAllData()" style="margin:0;">🗑️ Clear All Data</button>
+      <button class="btn btn-primary modal-close-btn" onclick="closeDataModal()" style="margin:0;">Close 💕</button>
+    </div>
+  </div>
+</div>
+
 <script>
 window.addEventListener('load', () => {
   setTimeout(() => {
     document.getElementById('loader').classList.add('hide');
-    setTimeout(() => { document.getElementById('loader').remove(); initMeters(); }, 800);
+    setTimeout(() => { document.getElementById('loader').remove(); }, 800);
   }, 1800);
 });
+
 
 const particleEmojis = ['🌸','💕','✨','🌙','⭐','💗','🌺','🦋','🍬','💫','🌷'];
 const particlesEl = document.getElementById('particles');
@@ -712,48 +794,170 @@ window.addEventListener('scroll', updateDots, { passive: true });
 dots.forEach((dot, i) => dot.addEventListener('click', () => scrollToSection(sectionIds[i])));
 function scrollToSection(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
 
-const meterData = [
-  { bar: 'bar-pain',   val: 'val-pain',   target: 78 },
-  { bar: 'bar-mood',   val: 'val-mood',   target: 45 },
-  { bar: 'bar-cry',    val: 'val-cry',    target: 92 },
-  { bar: 'bar-energy', val: 'val-energy', target: 22 },
-  { bar: 'bar-hunger', val: 'val-hunger', target: 95 },
-  { bar: 'bar-stable', val: 'val-stable', target: 18 },
-];
-function initMeters() {
-  meterData.forEach(m => setTimeout(() => {
-    const bar = document.getElementById(m.bar);
-    const val = document.getElementById(m.val);
-    if (!bar || !val) return;
-    let cur = 0; const step = m.target / 60;
-    const iv = setInterval(() => {
-      cur = Math.min(cur + step, m.target);
-      bar.style.width = cur + '%';
-      val.textContent = Math.round(cur) + '%';
-      if (cur >= m.target) clearInterval(iv);
-    }, 20);
-  }, 300));
-}
-let metersAnimated = false;
-const reportObserver = new IntersectionObserver((entries) => {
-  if (entries[0].isIntersecting && !metersAnimated) { metersAnimated = true; initMeters(); }
-}, { threshold: 0.2 });
-const reportSection = document.getElementById('report');
-if (reportSection) reportObserver.observe(reportSection);
+// ── Meter state ──────────────────────────────────────────────────
+const meterState = { pain:0, mood:0, cry:0, energy:0, hunger:0, stable:0 };
 
-const moods = [
-  "I need fries 🍟","I'm okay 🙂 ... actually no 😶","Don't text me 🚫","Come here 🥺",
-  "Why am I crying?? 😭","I want pasta 🍝 immediately","Hug me or leave 🫂",
-  "I'm fine (I'm not fine) 😑","Give me chocolate or else 🍫",
-  "I hate everything but also love dogs 🐶","5 more minutes in bed 🛋️ (since 3 hours ago)",
-  "Crying at a reel about sunsets ☀️","I'm sleepy AND hungry AND emotional 🌊",
-  "One (1) kind word and I'll cry 🥹","Leave me alone... but also don't 🌀"
-];
-function detectMood() {
-  const d = document.getElementById('mood-display');
-  d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop');
-  d.textContent = moods[Math.floor(Math.random() * moods.length)];
+const meterHints = {
+  pain:   ['No pain 🌸','Mild cramps 😬','Moderate 😣','Very painful 😖','MAX pain 🔥'],
+  mood:   ['Mood is ok ✨','A bit off 😐','Oscillating 😶','Unstable 😤','Chaos 🌪️'],
+  cry:    ['Nahi rona 😌','Thoda emotional 🥺','Might cry 😢','Will cry 😭','Crying already 😭💧'],
+  energy: ['Energetic! ⚡','Okay-ish 🙂','Low battery 🪫','Dead inside 😴','Do not disturb 🛋️'],
+  hunger: ['Full 🙅','Slightly hungry 🤔','Hungry 🍕','Very hungry 😤','FEED ME NOW 🍫🚨'],
+  stable: ['Very stable 🧘','Mostly stable 😊','A bit wobbly 😅','Unstable 😬','Emotionally offline 🌀'],
+};
+
+function getHintText(key, val) {
+  const idx = Math.min(4, Math.floor(val / 21));
+  return meterHints[key][idx];
 }
+
+function updateMeter(key, val) {
+  val = parseInt(val);
+  meterState[key] = val;
+  document.getElementById('bar-' + key).style.width = val + '%';
+  document.getElementById('val-' + key).textContent = val + '%';
+  document.getElementById('hint-' + key).textContent = getHintText(key, val);
+}
+
+// ── Smart Mood Detector ───────────────────────────────────────────
+function detectMood() {
+  const { pain, mood, cry, energy, hunger, stable } = meterState;
+  const d = document.getElementById('mood-display');
+
+  // Score-based smart detection
+  let result = '';
+  const all = [pain, mood, cry, energy, hunger, stable];
+  const avg = all.reduce((a,b)=>a+b,0)/6;
+
+  if (pain >= 80 && energy <= 25) {
+    result = 'I am in pain and I refuse to move from bed 😣🛋️';
+  } else if (cry >= 85) {
+    result = 'Bina reason ke ro rahi hoon and it\'s valid 😭💧';
+  } else if (hunger >= 85 && stable <= 30) {
+    result = 'GIVE ME CHOCOLATE OR FACE CONSEQUENCES 🍫😤';
+  } else if (pain >= 70 && cry >= 70) {
+    result = 'Pain + tears combo pack activated 😖😭';
+  } else if (energy <= 15 && mood <= 30) {
+    result = 'Zero energy, zero mood, maximum horizontal life 🛋️😑';
+  } else if (hunger >= 75 && energy <= 35) {
+    result = 'Hungry but too tired to get food. This is a crisis 🍕💀';
+  } else if (mood >= 70 && stable >= 60) {
+    result = 'Actually okay today?? Suspicious but okay 🌸😌';
+  } else if (stable <= 20) {
+    result = 'Emotional stability: loading... error 404 🌀';
+  } else if (pain <= 30 && energy >= 60) {
+    result = 'Low pain day! Celebrating with snacks 🎉🍫';
+  } else if (cry >= 60 && hunger >= 60) {
+    result = 'Crying AND hungry — twin threats unlocked 😭🍕';
+  } else if (mood <= 25) {
+    result = 'Don\'t text me. Actually do. Actually don\'t. 🚫💬';
+  } else if (avg >= 70) {
+    result = 'Everything is at max. Send help. And fries. 🆘🍟';
+  } else if (avg <= 25) {
+    result = 'Surprisingly holding it together today 💪✨';
+  } else {
+    const fallback = [
+      'Mood: a mystery even to me 🤷‍♀️',
+      'Fine-ish. Don\'t push it 😶',
+      'I\'m okay... checking again in 5 mins 🙃',
+      'One (1) kind word and I\'ll cry 🥹',
+      'Leave me alone... but also don\'t 🌀',
+    ];
+    result = fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop');
+  d.textContent = result;
+}
+
+// ── Save to localStorage ──────────────────────────────────────────
+function saveEntry() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  const timeStr = now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+
+  const entry = {
+    date: dateStr,
+    time: timeStr,
+    pain: meterState.pain,
+    mood: meterState.mood,
+    cry: meterState.cry,
+    energy: meterState.energy,
+    hunger: meterState.hunger,
+    stable: meterState.stable,
+    detectedMood: document.getElementById('mood-display').textContent,
+  };
+
+  const stored = JSON.parse(localStorage.getItem('periodData') || '[]');
+  stored.unshift(entry); // newest first
+  localStorage.setItem('periodData', JSON.stringify(stored));
+
+  const notice = document.getElementById('save-notice');
+  notice.style.color = '#10b981';
+  notice.textContent = '✅ Saved! Entry added for ' + dateStr + ' at ' + timeStr;
+  setTimeout(() => { notice.textContent = ''; }, 3500);
+}
+
+// ── Export Excel ──────────────────────────────────────────────────
+function exportExcel() {
+  const stored = JSON.parse(localStorage.getItem('periodData') || '[]');
+  if (!stored.length) {
+    alert('No data saved yet! Save at least one entry first 💕');
+    return;
+  }
+  const rows = stored.map(e => ({
+    'Date': e.date,
+    'Time': e.time,
+    'Pain Level (%)': e.pain,
+    'Mood (%)': e.mood,
+    'Cry Probability (%)': e.cry,
+    'Energy Level (%)': e.energy,
+    'Hunger (%)': e.hunger,
+    'Emotional Stability (%)': e.stable,
+    'Detected Mood': e.detectedMood,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [14,10,18,12,22,16,12,24,40].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Period Report');
+  XLSX.writeFile(wb, 'period_report.xlsx');
+}
+
+// ── View Data Modal ───────────────────────────────────────────────
+function openDataModal() {
+  const stored = JSON.parse(localStorage.getItem('periodData') || '[]');
+  const wrap = document.getElementById('data-table-wrap');
+  if (!stored.length) {
+    wrap.innerHTML = '<div class="no-data-msg">No entries yet! Adjust the bars and click 💾 Save Today\'s Entry 💕</div>';
+  } else {
+    wrap.innerHTML = `
+      <table class="data-table">
+        <thead><tr>
+          <th>📅 Date</th><th>🕐 Time</th>
+          <th>😣 Pain</th><th>😶 Mood</th><th>😭 Cry</th>
+          <th>⚡ Energy</th><th>🍕 Hunger</th><th>🧠 Stability</th>
+          <th>🌪️ Detected Mood</th>
+        </tr></thead>
+        <tbody>${stored.map(e=>`<tr>
+          <td>${e.date}</td><td>${e.time}</td>
+          <td>${e.pain}%</td><td>${e.mood}%</td><td>${e.cry}%</td>
+          <td>${e.energy}%</td><td>${e.hunger}%</td><td>${e.stable}%</td>
+          <td class="mood-cell">${e.detectedMood}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }
+  document.getElementById('data-modal').classList.add('show');
+}
+function closeDataModal() { document.getElementById('data-modal').classList.remove('show'); }
+
+function clearAllData() {
+  if (confirm('Are you sure you want to delete all saved entries? 💔')) {
+    localStorage.removeItem('periodData');
+    openDataModal(); // refresh view
+  }
+}
+
+
 
 const musicBtn = document.getElementById('music-btn');
 let audioCtx = null, musicPlaying = false, gainNode = null, oscillators = [];
@@ -798,6 +1002,7 @@ const fhStyle = document.createElement('style');
 fhStyle.textContent = `@keyframes floatHeart{from{transform:translateY(0) scale(0) rotate(-20deg);opacity:1}to{transform:translateY(-80vh) scale(1.2) rotate(20deg);opacity:0}}`;
 document.head.appendChild(fhStyle);
 document.getElementById('hug-popup').addEventListener('click', function(e) { if (e.target === this) closeHug(); });
+document.getElementById('data-modal').addEventListener('click', function(e) { if (e.target === this) closeDataModal(); });
 
 let chocolateTyped = '';
 document.addEventListener('keydown', (e) => {
